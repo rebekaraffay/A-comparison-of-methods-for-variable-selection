@@ -1,13 +1,3 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-24ddc0f5d75046c5622901739e7c5dd533143b0c8e959d652212380cedb1ea36.svg)](https://classroom.github.com/a/I2-kIT4b) \# Instructions
-
-Basic structure to create a report using Quarto, based on Pandoc's markdown and LaTeX.
-
-Check the doc at <https://quarto.org/> and simply install Quarto.
-
-The `docs` folder can be directly used by Github Pages. Example:
-
-<https://julien-vitay.net/quarto-report/>
-
 ## Instructions
 
 -   Html and pdf documents are in the "docs" folder;
