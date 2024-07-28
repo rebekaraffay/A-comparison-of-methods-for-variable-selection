@@ -1,0 +1,5 @@
+src/.quarto
+src/_extensions
+*.DS_Store
+*.tex
+.Rproj.user

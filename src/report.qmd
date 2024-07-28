@@ -1,0 +1,695 @@
+---
+title: "**A comparison of methods for variable selection**"
+subtitle: "*Final project*"
+author:
+  - name: Kathryn Dullerud, Maria Vittoria Impagliazzo, and Rebeka Raffay
+date: today
+abstract: In this project, we continue work on the comparison between different predictors done in Tibshirani et al, namely best subset, forward stepwise selection, lasso, and relaxed lasso. To this comparison, we also add adaptive lasso. Further, we investigate the performance of these predictors on data drawn from a non-Gaussian setting, namely the covariates matrix drawn from a multivariate t-distribution, to examine these various predictors in the presence of a greater number of extreme values.
+  
+format:  
+ html:
+   code-fold: true
+   toc: true
+   bibliography: biblio.bib
+   execute:
+      eval : false
+      echo: false
+      
+ pdf:  
+   toc: true
+   bibliography: biblio.bib
+   editor_options:
+   chunk_output_type: inline
+   execute: 
+      eval : false
+      echo: false
+   fig-pos: H
+
+---
+# Introduction
+In regression and other statistical settings, it is often quite important to perform variable selection to improve modeling. In particular, we are frequently tasked with this in settings where the number of observations in our design matrix $n$ is not much greater than the number of covariates $p$ and thus the model may have more variance than desirable and consequently tends to overfit, resulting in poor prediction accuracy. A setting in which variable selection is even more necessary is where $p > n$, and thus our design matrix is rank-deficient, and consequently collinearity will arise for the model produced with all $p$ covariates. Variable selection is also useful when the number of true nonzero coefficients is small compared to the number of covariates $p$, either if $n$ is bigger or smaller than $p$. Hence, selecting variables is desirable in order to reduce variance, overfitting, and prevent collinearity. Additionally, variable selection may be desired simply for the sake of model interpretability, a quality becoming evermore important as such models make their way increasingly into the public sphere. Many different formulations for variable selection have been developed to solve this problem. Included in these are best subset, forward stepwise, and lasso and its myriad variations, which will be the methods on which we focus in this paper.
+
+
+The presence of extreme values in doing variable selection is of interest to us. Particularly, we investigate the setting in which the covariates are drawn from a more heavy-tailed distribution than the normal or Gaussian. We wish to examine whether there are any differences between the ability of our different methods in predicting and selecting in the Gaussian case and the more heavy-tailed case, in particular the multivariate t-distribution. 
+
+
+# Preliminaries
+In the setting of linear regression, we let our design matrix be denoted by $X \in \mathbb{R}^{n \times p}$, where $n$ represents the number of observations in the system and $p$ the number of covariates. Further, we let $y \in \mathbb{R}^n$ denote the response vector. We model the relationship between $y$ and $X$ in the classical linear way, where $y = X\beta + \epsilon$. We assume the the error term $\epsilon$ to be normally distributed. Traditionally, given this model, we want to solve the least-squares problem $min_{\beta \in \mathbb{R}^p} || y-X\beta||^2$. However, as noted earlier, we are often faced with a setting in which we want to do variable selection. 
+
+## Best Subset
+Best subset is often considered the ideal in terms of performing variable selection, as it fits all possible models, that is, all $2^p$ models, and chooses whichever model performs best. Choosing the "best" model is usually performed by first choosing whichever model for each number of variables (${1,..., p}$) has the lowest residual sum of squares, deviance, or highest $R^2$, and from these $p$ models, then choosing whichever has the best cross-validated prediction error, AIC, BIC, or adjusted $R^2$ [@intro-tibshirani]. More formally, best subset solves the problem:
+$$min_{\beta} ||y-X\beta||^2 + \lambda \sum_{i=0}^p I(\beta \neq 0),$$
+where $\lambda \geq 0$ is a tuning parameter. Moreover, best subset is very desirable because it is most likely to pick the true model in straightforward scenarios. However, it is certainly not without its issues. Particularly, best subset is very computationally complex, as $2^p$ clearly grows exponentially with $p$, so it is not practical for use with large $p$. There have been a number of attempts to remedy this issue, such as branch-and-bound techniques in different statistical software, though many are still constrained to $p<30$ [@intro-tibshirani]. However, recently, Bertsimas et al. derived a much faster way to do best subset using mixed-integer optimization techniques [@best-bertsimas]. Despite this, best subset is still much more computationally costly than other variable selection methods.
+
+## Forward Stepwise
+Forward stepwise is considered a common alternative to best subset. Forward stepwise starts with a null model and then adds covariates one-by-one to the model by which improves the fit best and stops when there’s no improvement in fit [@intro-tibshirani]. It is much less costly than best subset, as it fits $\sum_{i=0}^{k+1} (p-i)$ models, where $k$ is the number of predictors in the best model, compared to best subset's $2^p$. As is the case with best subset, forward stepwise most often uses the biggest reduction in AIC, deviance, residual sum of squares or increase in adjusted $R^2$ to choose the best fit. It's important to note that forward stepwise selects covariates for the model without shrinking the coefficients, much like best subset. Thus, it is a good choice for situations in which one does not want to perform shrinkage. However, forward stepwise does not always choose the best model [@intro-tibshirani]. To demonstrate this, take as an example a setting in which $p=3$ and in which covariates $x_2$ and $x_3$ are the covariates of the true model. However, it is quite possible the covariate that provides the largest reduction in AIC from the null model (or any other metric) could be $x_1$. Thus there is no way for forward stepwise to choose the best model in this setting. Even more, it is possible that there is no improvement by adding $x_2$ and $x_3$ to this model. Then forward stepwise will not even choose a correct model (one in which all the true covariates are included, but so are others).
+
+## Lasso
+Lasso is another method for variable selection that also performs shrinkage on the coefficients. More formally, lasso solves the minimization problem: 
+$$min_{\beta} ||y-X\beta||^2 + \lambda \sum_{j=0}^p | \beta_j |$$
+in the linear regression context, where $\lambda \geq 0$. Lasso is a very computationally efficient method for performing variable selection, especially if it is given the value of $\lambda$, as it is a convex problem. However, more frequently, the choice of $\lambda$ is done via cross-validation or grid search [@intro-tibshirani]. Despite its computationally efficient properties, lasso presents a trade-off between biased coefficient estimates and variable selection, since it cannot do variable selection without biasing the chosen coefficients due to the fact that it also performs shrinkage [@best-bertsimas]. Thus, lasso may be an undesirable choice in a setting where we are certain of our data (i.e. noise $\epsilon$ is almost non-existent). However, there are many variations on lasso that try to correct for its issues.
+
+### Relaxed Lasso
+Relaxed lasso was devised in order to decrease the influence of shrinkage on the coefficients. It is performed by first computing the lasso coefficients $\hat{\beta}_{lasso}(\lambda)$ and then taking a convex combination of this vector of coefficients and the one calculated by performing normal least-squares regression on the variables selected by lasso. More formally, let $X'$ be the subset of the design matrix that lasso selects. Then we let $\hat{\beta}_{LS}(X')$ be the least-squares coefficient computed on $X'$. Finally, we defined the relaxed lasso coefficients to be 
+$$\hat{\beta}_{RL}(\gamma, \lambda) = \gamma \hat{\beta}_{lasso}(\lambda) + (1-\gamma)\hat{\beta}_{LS}(X'),$$
+where $\gamma \in [0,1]$ and $\lambda \geq 0$ [@best-tibshirani].
+
+### Adaptive Lasso
+Adaptive lasso, like relaxed lasso, also attempts to reduce the bias of lasso. However, it tries to accomplish this by reweighting the coefficients by an "initial" estimate of $\hat{\beta}$. This can be performed in any number of ways, including by regular least-squares and ridge regression. Formally, we let $\hat{\beta}_{init}$ be the initial estimate of the coefficients. Then adaptive lasso is performed by solving the problem
+$$min_{\beta} ||y-X\beta||^2 + \lambda \sum_{j=0}^p \frac{| \beta_j |}{ | \hat{\beta}_{init,j} | },$$
+where $\lambda \geq 0$ is once again a tuning parameter [@zou-adaptive].
+
+### Elastic Net
+Elastic net is an approach proposed to utilize the variable selection of lasso, while maintaining the predictive performance of ridge regression. Therefore, elastic net in general performs more shrinkage than lasso. It is useful in settings where we are interested in shrinking coefficients more than lasso does, while also being able to perform variable selection. It is accomplished by solving the minimization problem
+$$min_{\beta} ||y-X\beta||^2 + \lambda(\alpha||\beta||^2 + (1-\alpha)|\beta|),$$
+where $\alpha \in [0,1]$ serves as a weight [@zou-elastic].
+
+# Simulations
+
+Our simulation compares the five different variable selection methods described above, best subset, forward stepwise, lasso, relaxed lasso, and adaptive lasso. For adaptive lasso, we reweighted the coefficients by an "initial" estimate of $\hat{\beta}$ obtained performing ridge regression on the centered and standardized data. For relaxed lasso, we consider when $\gamma = 0.5$ as in [@best-tibshirani]. We remark that in the mentioned paper, the authors chose $\gamma$ with grid search over 10 equally placed values in the interval $[0,1]$. However, in order to be consistent and comparable with the analyzed paper, we did not choose the $\gamma$ hyperparameter by cross-validation or grid search, but kept the value of $\gamma$ obtained from their grid search. On the other hand, we tuned lasso and related methods on 50 values of $\lambda$.
+
+We were also interested in evaluating the elastic net performances in sparse settings. As we might have expected, it either always followed lasso, when values of $\alpha$ were large enough, or it underperformed, when it became close to essentially performing ridge regression. Hence we decided to not include it in the report, except for @fig-F. We will discuss this further in @sec-elastic.
+ 
+In order to reproduce the results of [@best-tibshirani], we used both the bestsubset package [@bestsubsetp] in R and coded some other functions ourselves. We decided to implement the lasso function and its variants using glmnet package [@glmnetp] in order to have a faster and more updated version of the algorithm. To perform best subset and forward stepwise we used the bestsubset package.
+
+We adopt the same evaluation metrics used in [@best-tibshirani] to assess our estimators. Letting $x_0 \in \mathbb{R}^p, y_0 \in \mathbb{R}$ be a single observation of the data and response respectively, they are defined as follows:
+\begin{itemize}
+    \item Relative risk (compared to null model):$$RR(\hat{\beta}) = \frac{\mathbb{E}[(x_0^T\hat{\beta}-x_0^T\beta)^2]}{\mathbb{E}[(x_0^T\beta)^2]},$$ which measures how well the model does compared to the "null" model, which sets $\hat{\beta} = 0$. The model is perfect according to this metric if $RR(\hat{\beta}) = 0$.
+    \item Relative test error: $$RTE(\hat{\beta}) = \frac{\mathbb{E}[(y_0-x_0^T\hat{\beta})^2]}{\sigma^2},$$ which measures the test error of the model relative to the noise error, $\epsilon$. The best model has $RTE(\hat{\beta}) = 1$, and the null has $RTE(\hat{\beta}) = 1 + SNR$. 
+    \item Proportion of variance explained: $$PVE(\hat{\beta}) = 1 - \frac{\mathbb{E}[(y_0-x_0^T\hat{\beta})^2]}{Var(y_0)},$$ where here a perfect score is $\frac{SNR}{1+SNR}$ and the null model score is $0$. 
+    \item Number of non-zeros: This metric attempts to compare how well each predictor does and choosing the true model under different SNR values. 
+    \item F-score: The F-score is defined in the traditional way, as follows: $$\text{F-score} = (\frac{\text{recall}^{-1} + \text{precision}^{-1}}{2})^{-1},$$ where recall is the true positive rate and precision is the positive predictive value.
+    \item Effective Degrees of Freedom: this is a measure of complexity widely used for models that fit adaptively. It is defined in the following way: $$\sum_{i=1}^n \frac{Cov(Y_i,\hat{Y}_i)}{\sigma^2}$$
+\end{itemize}
+
+We reproduce our simulations for both the normal and the extreme values settings. 
+
+
+## Normal Design
+
+We follow the simulation setup of [@best-tibshirani], who in turn follow the simulation setup of [ @best-bertsimas]. We first define $\rho$ to be the correlation factor between values in $X$ and the signal-to-noise ratio (SNR), $\nu$ to be the ratio of the variance of $X\beta$ to $\epsilon$. In this section, we draw the rows of the design matrix $X \in \mathbb{R}^{n \times p}$ from multivariate normal distributions $\mathcal{N}_p(0, \Sigma)$, where the entry $(i,j)$ of $\Sigma$ is equal to $\rho^{|i-j|}$, and $y \in \mathbb{R}^n$ from $\mathcal{N}_n(X\beta, \sigma^2 I)$, where $\sigma^2 = \frac{Var(X\beta)}{\nu}$. Further, we pull our true $\beta \in \mathbb{R}^p$ from a scheme devised in terms of the level of sparseness $s \in \mathbb{R}$ which [@best-tibshirani] call "beta-type 2", where the first $s$ entries of $\beta$ are equal to $1$ and the rest are 0. We also simulated data from the "beta-type 5" scheme, characterized by the first $s$ entries of $\beta$ equal to $1$ and the rest decay exponentially to $0$, $\beta_j = 0.5^{j-s}$ for $j > s$; but in the following we do not report results obtained using "beta-type 5" as they were very similar to the ones obtained with "beta-type 2".
+
+```{r, fig.align = 'center'}
+library(bestsubset)
+library(gridExtra)
+library(LaplacesDemon)
+library(tidyverse)
+source("newLasso.R")
+source('generate_data.R')
+source('bestsubset.R')
+```
+
+We consider the settings in the following table:
+
+| Setting | n | p | s |
+|---------|:-----|------:|:------:|
+| @fig-df  | 70  |   30 |  5   |
+| @fig-1, @fig-2  | 100   |    20 |   5   |
+| @fig-4, @fig-5_1_Norm, @fig-5_2_Norm  | 100    |     10 |   5    |
+
+
+Throughout we keep $s$ (number of non-zeros) constant in order to more easily compare across settings. We consider the same range of SNR as in [@best-tibshirani], from $0$ to $6$, the reasoning of which is explained in their paper. Further, we remark that since best subset selection takes 44 hours to run even in the case of $n = 50, p = 100$, we could not reproduce all the settings proposed in [@best-tibshirani].
+
+In @fig-df, we see how the different methods compare in terms of effective degrees of freedom, as done in [@best-tibshirani]. We have the same results as [@best-tibshirani], in addition to adding adaptive lasso and elastic net. As we can see the degrees of freedom as a measure of the aggressiveness of the methods, we can say that best subset and forward stepwise are the most aggressive. Due to shrinkage, the effective degrees of freedom of lasso is equal to the expected number of selected variables. Relaxed lasso and adaptive lasso act in the same way. It is important to note depending on the settings, different methods can perform better. However, since relaxed lasso and adaptive lasso are in between lasso and best subset, they act more consistently than the others. We expect that when the SNR is low, and also depending on other factors like correlation between predictor variables, the more aggressive best subset and forward stepwise methods could lead to estimators with high variance and worse accuracy than lasso. On the other hand, in high SNR settings, the shrinkage applied by the lasso estimator can result in unwanted bias and worse accuracy than best subset and forward stepwise. 
+
+In @fig-df we included the relaxed lasso with $\gamma = 0$ as in a new paper [@NewForwardStepwise], where the authors implement forward stepwise in this way. We see that the two implementations differ from each other. This alternative forward stepwise acts more similarly to adaptive and relaxed lasso. The possible explanation for this difference is the fact that in [@best-tibshirani] the authors implement a forward stepwise based on QR decomposition [@best-tibshirani].
+
+```{r, fig.align = 'center', fig.size = 4}
+#| label: fig-df
+#| fig.pos : h!
+#| fig-cap: Degrees of freedom for lasso, relaxed lasso with $\gamma$ = 0 and $\gamma$ = 0.5, adaptive lasso, forward stepwise and best subset; problem setup with n = 70 and p = 30 (computed via Monte Carlo evaluation of the covariance with 500 replications). The setup had an SNR of 0.7, predictor correlation level of 0.35 and the coefficients followed the beta-type 2 pattern with s = 5
+#| eval : true
+knitr::include_graphics("plots/df_plot_wo.png")
+```
+
+```{r}
+# Set some overall simulation parameters
+n = 70; p = 30 # Size of training set, and number of predictors
+nval = n # Size of validation set
+seed = 0 # Random number generator seed
+s = 5 # Number of nonzero coefficients
+beta.type = 2 # Coefficient type
+
+
+## Degrees of freedom simulation
+# we want to keep x fixed for the df calculations
+set.seed(seed)
+nrep = 500 # Number of repetitions
+
+### RUN IF NORMAL
+set.seed(123)
+xy.obj = sim.xy(n,p,nval,rho=0.35,s=s,beta.type=beta.type,snr=0.7)
+x = xy.obj$x
+y = xy.obj$y
+mu = as.numeric(x %*% xy.obj$beta)
+sigma = xy.obj$sigma
+nlam = 300
+
+### RUN FOR BOTH 
+
+# matrix that will contain results of simulations 
+ip.las = matrix(0,nrep,(p+1))
+ip.adapt =  matrix(0,nrep,(p+1))
+ip.relax_las = ip.relax_las0 = matrix(0,nrep,(p+1))
+ip.adap_las = matrix(0,nrep,(p+1))
+p.fs = ip.bs = matrix(0,nrep,(p+1))
+
+set.seed(123)
+for (r in 1:nrep) {
+  cat(r,"... ")
+  eps = rnorm(n)*sigma
+  y = mu + eps
+
+  beta.las = coef(lasso1(x,y,intercept=FALSE, nlambda = nlam))
+  nzs.las = colSums(beta.las != 0)
+  j = nlam - rev(match(p:0, rev(nzs.las), NA)-1)
+  yhat.las = (x %*% beta.las)[,j]
+
+  #relax gamma 0.5
+  beta.las = coef(lasso1(x,y,intercept=FALSE,nlambda =nlam, relax = T, gamma = 0.5))
+  nzs.las = colSums(beta.las != 0)
+  j = match(0:p, nzs.las, NA)
+  yhat.relax_las = (x %*% beta.las)[,j]
+  #
+  #relax gamma 0
+  beta.las = coef(lasso1(x,y,intercept=FALSE,nlambda =nlam, relax = T, gamma = 0))
+  nzs.las = colSums(beta.las != 0)
+  j = match(0:p, nzs.las, NA)
+  yhat.relax_las0 = (x %*% beta.las)[,j]
+
+  #adaptive
+  beta.las = coef(lasso1(x,y,intercept=FALSE,nlambda =nlam, penalty = T))
+  nzs.las = colSums(beta.las != 0)
+  j = match(0:p, nzs.las, NA)
+  yhat.adap_las = (x %*% beta.las)[,j]
+
+  #relax gamma 0.5
+  beta.las = coef(lasso1(x,y,intercept=FALSE,nlam=nlam, relax = T, gamma = 0.5))
+  nzs.las = colSums(beta.las != 0)
+  j = match(0:p, nzs.las, NA)
+  yhat.relax_las = (x %*% beta.las)[,j]
+  
+  #adaptive 
+  beta.las = coef(lasso1(x,y,intercept=FALSE,nlam=nlam, penalty = T))
+  nzs.las = colSums(beta.las != 0)
+  j = match(0:p, nzs.las, NA)
+  yhat.adap_las = (x %*% beta.las)[,j]
+
+  #elastic net
+  beta.las = coef(lasso1(x,y,intercept=FALSE,nlam=nlam, alpha = 0.05))
+  nzs.las = colSums(beta.las != 0)
+  j = match(0:p, nzs.las, NA)
+  yhat.el = (x %*% beta.las)[,j]
+
+  
+  yhat.fs = predict(fs(x,y,intercept=FALSE))[, 1:(p+1)]
+  yhat.bs = predict(bs(x,y,intercept=FALSE))
+  ip.las[r,] = colSums(yhat.las * eps)
+  ip.reax_las[r,] = colSums(yhat.relax_las * eps)
+  ip.adap_las[r,] = colSums(yhat.adap_las * eps)
+  ip.fs[r,] = colSums(yhat.fs * eps)
+  ip.bs[r,] = colSums(yhat.bs * eps)
+  ip.el[r,] = colSums(yhat.el * eps)
+}
+
+df.las = colMeans(ip.las, na.rm=TRUE) / sigma^2
+df.relax = colMeans(ip.reax_las, na.rm=TRUE) / sigma^2
+
+df.adapt = colMeans(ip.adap_las, na.rm=TRUE) / sigma^2
+df.el = colMeans(ip.el, na.rm=TRUE) / sigma^2
+
+df.fs = colMeans(ip.fs, na.rm=TRUE) / sigma^2
+df.bs = colMeans(ip.bs, na.rm=TRUE) / sigma^2
+
+# Plot the results
+
+dat = data.frame(x=rep(0:p, 7),
+               y=c(df.las, df.relax, df.relax0, df.adapt, df.fs, df.bs, df.el),
+               Method=factor(rep(c("lasso", "relaxed lasso gamma 0.5", "relaxed lasso gamma 0", "adaptive lasso", "forward", "best subset", "forward_glmnet"), rep(p+1, 7))))
+
+dat = data.frame(x=rep(0:p, 6),
+                 y=c(df.las, df.relax, df.adapt, df.fs, df.bs, df.el),
+                 Method=factor(rep(c("lasso", "relaxed lasso", "adaptive lasso", "forward", "best subset", "elastic net"), rep(p+1, 6))))
+
+ggplot(dat, aes(x=x,y=y,color=Method)) +
+  xlab("Number of nonzero coefficients") +
+  ylab("Degrees of freedom") +
+  geom_line(lwd=0.5, color="#9b9b9b", linetype=3, aes(x,x)) +
+  geom_line(lwd=1) + geom_point(pch=19) +
+    theme_bw() + theme(legend.just=c(1,0), legend.pos=c(0.95,0.05))
+
+```
+
+
+### Results
+
+Each plot was obtained by averaging the given metric over $20$ repetitions. Hence for each metric we have the estimate and its $0.95$ confidence interval, depicted by vertical lines. When not otherwise marked, the correlation level is kept at $0.35$.
+
+In @fig-1 we look at the performance of the five methods according to relative test error in terms of how well they predict the true number of nonzeros. We see that for high SNR (SNR $= 3$), all the methods perform quite similarly with best subset and stepwise being the best. These methods find the true number of nonzeros in this case. When the signal-to-noise ratio is decreased, the plot starts to look different. In the low SNR setting (SNR $= 0.1$), instead, lasso outperforms all other methods, which makes sense due to the fact that it performs more shrinkage than any other method. Overall, relaxed lasso and adaptive lasso perform the best - they are both accurate in low and high SNR settings, due to the fact that they are malleable to settings where shrinkage needs to be performed (low SNR) and where it does not (high SNR): relaxed lasso uses its $\gamma$ parameter to do so, while adaptive lasso relies on the ridge penalty.  
+
+
+```{r, fig.align = 'center'}
+#| label: fig-1
+#| fig.pos : h!
+#| fig-cap: Relative test error as function of the number of nonzero coefficients. Covariate matrix generated from a normal distribution. Correlation is set to 0.35. 
+#| eval : true
+knitr::include_graphics("plots/fig1.png")
+```
+
+```{r}
+# Regression functions: lasso, forward stepwise, and best subset selection
+reg.funs = list()
+reg.funs[["Best subset"]] = function(x,y) bs(x,y,intercept=FALSE)
+reg.funs[["Stepwise"]] = function(x,y) fs(x,y,intercept=FALSE)
+reg.funs[["Lasso"]] = function(x,y) lasso1(x,y,intercept=FALSE)
+reg.funs[["Relaxed lasso"]] = function(x,y) lasso1(x,y,intercept=FALSE,
+                                                   relax=T, gamma = 0.5)
+reg.funs[["Adaptive Lasso"]] = function(x,y) lasso1(x,y,intercept=FALSE, penalty =T)
+reg.funs[["Elastic Net"]] = function(x,y) lasso1(x,y,intercept=FALSE, alpha = 0.05)
+
+
+# Run the master simulation function, for two different SNRs 
+sim.obj.hisnr = sim.master(n,p,nval,reg.funs=reg.funs,nrep=20,seed=0, rho = 0.35,
+                           beta.type=2,s=5,snr=3,verbose=TRUE)
+sim.obj.losnr = sim.master(n,p,nval,reg.funs=reg.funs,nrep=20,seed=0, rho = 0.35,
+                           beta.type=2,s=5,snr=0.1,verbose=TRUE)
+
+# Print simulation results
+sim.obj.hisnr
+sim.obj.losnr
+
+# Plot simulation results, excluding relaxed lasso 
+
+fig1.1 = plot(sim.obj.hisnr, method.nums = 1:5, main="n = 100, p = 20, beta.type = 2, SNR = 3")
+fig1.2 = plot(sim.obj.losnr, method.nums = 1:5, main="n = 100, p = 20, beta.type = 2, SNR = 0.1")
+
+grid.arrange(fig1.1, fig1.2, ncol = 2 )
+```
+
+In addition to using glmnet, we also reproduced the plot using the relaxed lasso function provided in bestsubset package. The result shown in @fig-2 is a bit surprising, hence there might be an error in the relaxed lasso function of the bestsubset package, which cannot be easily interpreted.
+
+```{r, fig.align = 'center'}
+#| label: fig-2
+#| fig-cap: Relative test error as function of the number of nonzero coefficients. Covariate matrix generated from a normal distribution. Relaxed lasso performed using the function provided in bestsubset package. Correlation is set to 0.35. 
+#| eval: true
+knitr::include_graphics("plots/fig2.png")
+```
+```{r}
+# Regression functions: lasso, forward stepwise, and best subset selection
+reg.funs1 = list()
+reg.funs1[["Best subset"]] = function(x,y) bs(x,y,intercept=FALSE)
+reg.funs1[["Stepwise"]] = function(x,y) fs(x,y,intercept=FALSE)
+reg.funs1[["Lasso"]] = function(x,y) lasso1(x,y,intercept=FALSE)
+reg.funs1[["Relaxed lasso"]] = function(x,y) lasso(x,y,intercept=FALSE,
+                                                   nrelax = 5)
+reg.funs1[["Adaptive Lasso"]] = function(x,y) lasso1(x,y,intercept=FALSE, penalty =T)
+reg.funs1[["Elastic Net"]] = function(x,y) lasso1(x,y,intercept=FALSE, alpha = 0.05)
+
+
+# Run the master simulation function, for two different SNRs 
+sim.obj.hisnr1 = sim.master(n,p,nval,reg.funs=reg.funs1,nrep=20,seed=0, rho = 0.35,
+                           beta.type=2,s=5,snr=3,verbose=TRUE)
+sim.obj.losnr1 = sim.master(n,p,nval,reg.funs=reg.funs1,nrep=20,seed=0, rho = 0.35,
+                           beta.type=2,s=5,snr=0.1,verbose=TRUE)
+
+# Print simulation results
+sim.obj.hisnr1
+sim.obj.losnr1
+
+# Plot simulation results, excluding relaxed lasso 
+
+fig11.1 = plot(sim.obj.hisnr1, method.nums = 1:5, main="n = 100, p = 20, beta.type = 2, SNR = 3")
+fig11.2 = plot(sim.obj.losnr1, method.nums = 1:5, main="n = 100, p = 20, beta.type = 2, SNR = 0.1")
+
+grid.arrange(fig11.1, fig11.2, ncol = 2 )
+```
+
+We decided to investigate the role of correlation in the different methods' performance, as it was not a central argument in the paper [@best-tibshirani]. In this case we kept the SNR constant and changed the correlation from a low ($0.2$) to a higher ($0.7$) value. In @fig-4 we compare the various methods according to relative risk. Looking at the two subplots of @fig-4, we see that when the correlation is low, best subset and forward stepwise select close to the true number of nonzeros, which is $5$, while the other methods are predicting higher values (around $7$). In the higher correlation setting, relaxed and adaptive lasso are the best, while best subset and forward stepwise underestimate the number of nonzero coefficients.
+
+```{r, fig.align = 'center'}
+#| label: fig-4
+#| fig.pos : h!
+#| fig-cap: Relative risk with fixed SNR = 0.7 and correlation 0.2, and 0.7. Low setting with n = 100, p = 10 and s = 5. Covariate matrix generated from a normal distribution.
+#| eval : true
+knitr::include_graphics("plots/fig4.png")
+```
+```{r}
+n = 100
+p = 10
+nval = n 
+
+# fig 2 left 
+sim_fig2 = sim.master(n,p,nval,reg.funs=reg.funs, rho = 0.2, nrep=20,seed=0, 
+                      beta.type=2,s=5, snr = 0.7, verbose=TRUE)
+
+fig2_sx = plot(sim_fig2, method.nums = 1:5,  what ="risk", main = "SNR = 0.7, Cor=0.2")
+
+# fig 2 right
+sim_fig2.1 = sim.master(n,p,nval,reg.funs=reg.funs, rho = 0.7, nrep=20,seed=0, 
+                        beta.type=2,s=5, snr = 0.7, verbose=TRUE)
+
+fig2_dx = plot(sim_fig2.1, method.nums = 1:5, what ="risk", main = "SNR = 0.7, Cor=0.7")
+
+grid.arrange(fig2_sx, fig2_dx, ncol = 2)
+```
+
+Now we focus on the setting with $n$ = 100, $p$ = 10, $s$ = 5 and $\rho$ = 0.35. Results are shown in @fig-5_1_Norm and @fig-5_2_Norm.
+
+In @fig-5_1_Norm we examine our different methods in terms of the proportion of variance explained on the right and in terms of relative test error on the left. The dotted line in the left subplot denotes the performance of the null model and in the second, the perfect score.
+
+In @fig-5_1_Norm, in the left plot we see that forward stepwise and best subset perform worse than the others for low SNR levels, but for high SNR levels they perform the best. From the lasso family, adaptive lasso performs the best overall, because for high SNR it acts similarly to best subset and forward stepwise. On the right plot we see that in terms of proportion of variance explained, all of the models are roughly equivalent and converge to the true value.
+
+```{r, fig.align = 'center'}
+#| label: fig-5_1_Norm
+#| fig.pos : h!
+#| fig-cap: Relative test error and proportion of variance explained as functions of SNR. Low setting with n = 100, p = 10 and s = 5. Covariates matrix generated from a normal distribution.  Correlation is set to 0.35. 
+#| eval : true
+knitr::include_graphics("plots/fig5.1_Norm.png")
+```
+```{r}
+#Run the master simulation function, for two different SNRs
+n = 100
+p = 10
+s = 5
+nval = n
+
+snr_val = exp( seq(log(0.05), log(6), length.out= 10))
+
+
+## already in fig5
+# for (i in 1:length(snr_val)){
+#   sim.master(n,p,nval,reg.funs=reg.funs, rho = 0.35, nrep=20,seed=0, file = paste0("prova", i),
+#              beta.type=2,s=5, snr = snr_val[i],verbose=TRUE)
+# }
+
+
+file_list_fig5 = paste0("/fig5/prova", 1:10)
+a = plot.from.file(file_list_fig5, main=paste0("n=",n,", p=",p,", s=",s), what = "error" )
+b = plot.from.file(file_list_fig5, main=paste0("n=",n,", p=",p,", s=",s), what = "prop")
+grid.arrange(a, b, ncol = 2)
+```
+
+In the left subplot of @fig-5_2_Norm, we consider the number of nonzeros predicted by the methods as SNR varies. We remark that the true number of nonzeros in this setting is $5$. We see that for low SNR the lasso family is the best, while for high SNR, best subset and forward stepwise are the best. Lasso also performs quite badly in this case, as "sparser solutions entail too much shrinkage" [@best-tibshirani]. However, it is also quite interesting to note that as SNR increases, we do not see that any of our models necessarily go to the true number of $p$, but rather consistently plateau above the true value.
+
+In the right plot of @fig-5_2_Norm, we look at the performance of different prediction methods in terms of F-score. So again we have the situation that for low SNR the lasso family performs the best and for high SNR, best subset and forward stepwise perform better. 
+
+
+```{r, fig.align = 'center'}
+#| label: fig-5_2_Norm
+#| fig.pos : h!
+#| fig-cap: Number of nonzeros and F classification of nonzeros as functions of SNR. Low setting with n = 100, p = 10 and s = 5. Covariates matrix generated from a normal distribution.  Correlation is set to 0.35. 
+#| eval : true
+knitr::include_graphics("plots/fig5.2_Norm.png")
+```
+```{r}
+c = plot.from.file(file_list_fig5, main=paste0("n=",n,", p=",p,", s=",s), what = "nonzero")
+d = plot.from.file(file_list_fig5, main=paste0("n=",n,", p=",p,", s=",s), what = "F")
+grid.arrange(c, d, ncol = 2)
+```
+
+## Extreme Value Design
+
+In addition to the replication of the work done in [@best-tibshirani], we chose to extend their work by investigating the performance of our chosen predictors in a setting where the design matrix may have more extreme values.
+
+In this section, we draw the rows of the design matrix $X \in \mathbb{R}^{n \times p}$ from the multivariate student-t distribution $\mathcal{T}_{\eta}(0, \Sigma)$, where the entry $(i,j)$ of $\Sigma$ is equal to $\rho^{|i-j|}$. $\Sigma$ now denotes the scale of the student distribution, and $Var(X) = \frac{\eta}{\eta-2}\Sigma$, where $\eta$ is the degrees of freedom. We simulate $y \in \mathbb{R}^n$ from $\mathcal{N}_n(X\beta, \sigma^2 I)$, where $\sigma^2 = \frac{Var(X\beta)}{\nu} = \frac{\eta\beta^T\Sigma\beta}{(\eta-2)\nu}$. Further, we pull our true $\beta \in \mathbb{R}^p$ using the same scheme as before. 
+
+We will only look at the number of nonzeros and F-score in the setting that we chose. This is due to the fact that the relative risk, relative test error and proportion of variance explained have the same expression in both the normal and student-t case, since we keep the $\Sigma$ the same as in the normal case, and thus introduce the same multiplicative constant in front of the variance of both $X\beta$ and $\epsilon$, which will thus cancel out.
+
+### Results
+
+Each plot was obtained by averaging the given metric over $20$ repetitions. When not otherwise marked, the correlation level is kept at $0.35$ and the degrees of freedom of the student t-distribution is chosen to be $2.1$, in order to emphasize the extreme value effect.
+
+@fig-5_2_T below depicts the number of non-zeros and the F-classification of nonzeros as functions of the signal-to-noise ratio. 
+
+Comparing this plot to @fig-5_2_Norm we notice that the general shape of the plots is similar, but there are some notable differences. Namely, all of the methods work better in the normal setting, as the F-score of nonzeros is constantly lower for the multivariate t-setting compared to the normal one. In the normal setting, forward stepwise and best subset performed the best in the high SNR settings, but for the student-t case, this is not necessarily true.
+
+```{r, fig.align = 'center'}
+#| label: fig-5_2_T
+#| fig.pos : h!
+#| fig-cap: Number of nonzeros and F classification of nonzeros as functions of SNR. Low setting with n = 100, p = 10 and s = 5. Covariates matrix generated from a multivariate t-distribution with 2.1 degrees of freedom.  Correlation is set to 0.35. 
+#| eval : true
+knitr::include_graphics("plots/fig5.2_T.png")
+```
+```{r}
+
+#Run the master simulation function, for two different SNRs
+n = 100
+p = 10
+s = 5
+nval = n
+
+## already in fig5_t
+# for (i in 1:length(snr_val)){
+#   sim.master_t(n,p,nval,reg.funs=reg.funs, df = 2.1, rho = 0.35, nrep=20,seed=0, file = paste0("prova_T", i),
+#              beta.type=2,s=5, snr = snr_val[i],verbose=TRUE)
+# }
+
+
+file_list_fig5_T = paste0("7fig5_t/prova_T", 1:10)
+cc = plot.from.file(file_list_fig5_T , main=paste0("n=",n,", p=",p,", s=",s), what = "nonzero")
+dd = plot.from.file(file_list_fig5_T , main=paste0("n=",n,", p=",p,", s=",s), what = "F")
+grid.arrange(cc, dd, ncol = 2)
+
+```
+
+Moreover, we wanted to focus our attention on how the performances of the methods vary as the degrees of freedom of the multivariate t-distribution degrees of freedom vary. 
+In @fig-5_2_T1 we vary the degrees of freedom of the student distribution, while keeping other factors constant (e.g. SNR $= 1$). This analysis is similar to the case when vary the SNR, because of the relationship between $\sigma^2$, SNR and the degrees of freedom. For small degrees of freedom we should get similar results to small SNR values, and similarly for high values. Thus, we get a similar shape to the left plot of @fig-5_2_T, however the values on @fig-5_2_T1 are a bit shifted. We have that for the degrees of freedom considered, the best method is always the forward stepwise and best subset. 
+
+As the degrees of freedom is growing, the values obtained in @fig-5_2_T1 are approaching the values in @fig-5_2_Norm with the SNR 1. This is because of the fact that as the degrees of freedom are getting higher, the student distribution converges to the normal distribution. As a note, we are still in the extreme values setting as we are considering $10$ as the biggest number of degrees of freedom. 
+
+```{r, fig.align = 'center'}
+#| label: fig-5_2_T1
+#| fig.pos : h!
+#| fig-cap: Number of nonzero coefficients against the degrees of freedom of the multivariate t-distribution. Correlation is set to 0.35. SNR is set to 1. n = 100, p = 10, s = 5.
+#| eval : true
+knitr::include_graphics("plots/nonzero.png")
+
+```
+```{r}
+
+
+# Function to simulate from multivariate t non - adjusting for the degrees of 
+# freedom 
+sim.xy_t_df = function(n, p, nval, rho=0, s=5, beta.type=1, snr=1, df = 3) {
+  
+  # Generate predictors
+  Sigma <- generate_sigma1(p, rho) # Same as normal
+  x <- generate_student_x(n, p, df, Sigma)
+  xval <- generate_student_x(nval, p, df, Sigma)
+  beta <- generate_beta(n, p, s, beta.type)
+  
+  # Set snr based on sample variance on infinitely large test set
+  scale = as.numeric(t(beta) %*% Sigma %*% beta) #scale of X * beta
+  sigma = (df/(df - 2)) * scale #variance of X * beta
+  # NOW WE DON'T ADJUST THE VARIANCE IN ORDER 
+  # TO HAVE A CERTAIN SNR
+  
+  # Generate responses
+  y <- generate_y_t(n, p, s, beta, rho, snr, x, sigma)
+  yval <- generate_y_t(nval, p, s, beta, rho, snr, xval, sigma)
+  
+  sigma <- sqrt(sigma) #added sqrt bc of the og function
+  
+  # Sigma set to the true variance of the X matrix:
+  Sigma <- df/(df - 2) * Sigma
+  return(list(x,y,xval,yval,Sigma,beta,sigma))
+}
+
+
+#sim mastter for multivariate t not adjusted for the dof
+sim.master_t_NoSNR = function(n, p, nval, reg.funs, nrep=50, seed=NULL, verbose=FALSE,
+                        file=NULL, file.rep=5, rho=0, s=5, beta.type=1, snr = NA, df = 3, sforpredict = 0.84) {
+  
+  this.call = match.call()
+  if (!is.null(seed)) set.seed(seed)
+  
+  N = length(reg.funs)
+  reg.names = names(reg.funs)
+  if (is.null(reg.names)) reg.names = paste("Method",1:N)
+  
+  err.train = err.val = err.test = prop = risk = nzs = fpos = fneg = F1 = 
+    opt = runtime = vector(mode="list",length=N)
+  names(err.train) = names(err.val) = names(err.test) = names(prop) =
+    names(risk) = names(nzs) = names(fpos) = names(fneg) = names(F1) = 
+    names(opt) = names(runtime) = reg.names
+  for (j in 1:N) {
+    err.train[[j]] = err.val[[j]] = err.test[[j]] = prop[[j]] = risk[[j]] =
+      nzs[[j]] = fpos[[j]] = fneg[[j]] = F1[[j]] = opt[[j]] = runtime[[j]] =
+      matrix(NA,nrep,1)
+  }
+  filled = rep(FALSE,N)
+  err.null = risk.null = sigma = rep(NA,nrep)
+  
+  # Loop through the repetitions
+  for (i in 1:nrep) {
+    if (verbose) {
+      cat(sprintf("Simulation %i (of %i) ...\n",i,nrep))
+      cat("  Generating data ...\n")
+    }
+    
+    # Generate x, y, xval, yval
+    xy.obj = sim.xy_t_df(n,p,nval,rho,s,beta.type,snr,df) 
+    xy.obj$x = matrix(unlist(xy.obj[1]), n, p)
+    xy.obj$xval = matrix(unlist(xy.obj[3]), nval, p)
+    xy.obj$y = as.numeric(unlist(xy.obj[2]))
+    xy.obj$yval = as.numeric(unlist(xy.obj[4]))
+    xy.obj$Sigma = matrix(unlist(xy.obj[5]), p, p)
+    xy.obj$beta = as.vector(unlist(xy.obj[6]))
+    xy.obj$sigma= as.numeric(unlist(xy.obj[7]))
+    
+    
+    risk.null[i] = diag(t(xy.obj$beta) %*% xy.obj$Sigma %*% xy.obj$beta)
+    err.null[i] = risk.null[i] + xy.obj$sigma^2
+    sigma[i] = xy.obj$sigma
+    
+    # Loop through the regression methods
+    for (j in 1:N) {
+      if (verbose) {
+        cat(sprintf("  Applying regression method %i (of %i) ...\n",
+                    j,N))
+      }
+      
+      tryCatch({
+        # Apply the regression method in hand
+        runtime[[j]][i] = system.time({
+          reg.obj = reg.funs[[j]](xy.obj$x,xy.obj$y)
+        })[1]
+        
+        # Grab the estimated coefficients, and the predicted values on the
+        # training and validation sets
+        betahat = as.matrix(coef(reg.obj))
+        m = ncol(betahat); nc = nrow(betahat)
+        
+        # Check for intercept
+        if (nc == p+1) {
+          intercept = TRUE
+          betahat0 = betahat[1,]
+          betahat = betahat[-1,]
+        }
+        else intercept = FALSE
+        
+        muhat.train = as.matrix(predict(reg.obj,xy.obj$x))
+        muhat.val = as.matrix(predict(reg.obj,xy.obj$xval))
+        
+        # Populate empty matrices for our metrics, of appropriate dimension
+        if (!filled[j]) {
+          err.train[[j]] = err.val[[j]] = err.test[[j]] = prop[[j]] =
+            risk[[j]] = nzs[[j]] = fpos[[j]] = fneg[[j]] = F1[[j]] = opt[[j]] =
+            matrix(NA,nrep,m)
+          filled[j] = TRUE
+          # N.B. Filling with NAs is important, because the filled flag could
+          # be false for two reasons: i) we are at the first iteration, or ii)
+          # we've failed in all previous iters to run the regression method
+        }
+        
+        
+        # Record all of our metrics
+        
+        err.train[[j]][i,] = colMeans((muhat.train - xy.obj$y)^2)
+        
+        err.val[[j]][i,] = colMeans((muhat.val - xy.obj$yval)^2)
+        delta = betahat - xy.obj$beta
+        
+        risk[[j]][i,] = diag(t(delta) %*% xy.obj$Sigma %*% delta)
+        if (intercept) risk[[j]][i,] = risk[[j]][i,] + betahat0^2
+        err.test[[j]][i,] = risk[[j]][i,] + xy.obj$sigma^2
+        prop[[j]][i,] = 1 - err.test[[j]][i,] / err.null[i]
+        nzs[[j]][i,] = colSums(betahat!=0)
+        tpos = colSums((betahat!=0)*(xy.obj$beta!=0))
+        fpos[[j]][i,] = nzs[[j]][i,]-tpos
+        fneg[[j]][i,] = colSums((betahat==0)*(xy.obj$beta!=0))
+        F1[[j]][i,] = 2*tpos/(2*tpos+fpos[[j]][i,]+fneg[[j]][i,])
+        opt[[j]][i,] = (err.test[[j]][i,] - err.train[[j]][i,]) /
+          err.train[[j]][i,]
+      }, error = function(err) {
+        if (verbose) {
+          cat(paste("    Oops! Something went wrong, see error message",
+                    "below; recording all metrics here as NAs ...\n"))
+          cat("    ***** Error message *****\n")
+          cat(sprintf("    %s\n",err$message))
+          cat("    *** End error message ***\n")
+        }
+        # N.B. No need to do anything, the metrics are already filled with NAs
+      })
+    }
+    
+    # Save intermediate results?
+    if (!is.null(file) && file.rep > 0 && i %% file.rep == 0) {
+      saveRDS(enlist1(err.train,err.val,err.test,err.null,prop,risk,risk.null,
+                      nzs,fpos,fneg,F1,opt,sigma,runtime),file=file)
+    }
+  }
+  
+  # Save results now (in case of an error that might occur below)
+  out = enlist1(err.train,err.val,err.test,err.null,prop,risk,risk.null,nzs,fpos,
+                fneg,F1,opt,sigma,runtime)
+  if (!is.null(file)) saveRDS(out, file)
+  
+  # Tune according to validation error, and according to test error
+  out = choose.tuning.params(out)
+  # Save final results
+  out = c(out, list(rho=rho,s=s,beta.type=beta.type,snr=snr,call=this.call))
+  class(out) = "sim"
+  if (!is.null(file)) { saveRDS(out, file); invisible(out) }
+  else return(out)
+}
+
+############## SIMULATION 
+n = 100
+p = 10
+s = 5
+nval = n
+
+df_vec = seq(2.1, 10, length.out = 10)
+store_results = matrix(NA, 6, 10)
+
+for (i in 1:length(df_vec)){
+  prova = sim.master_t_NoSNR(n,p,nval,reg.funs=reg.funs, rho = 0.35, nrep=20,seed=0, file = paste0("prova_T", i),
+                             beta.type=2,s=5,verbose=TRUE, df = df_vec[i])
+  nonz = tune.and.aggregate(prova, prova$nzs)
+  store_results[,i] = nonz$z.val.ave
+}
+
+store_results  = store_results[,1:10] 
+store_results = data.frame(store_results)
+colnames(store_results) = round(df_vec ,2)
+
+store_results$method = c("Best Subset", "Stepwise", "Lasso", "Relaxed Lasso", "Adaptive Lasso", "Elastic Net")
+
+store_results_log = pivot_longer(store_results, 1:10 )
+
+ggplot(store_results_log) +
+  geom_line(aes(x = as.numeric(name), y = value, group = method, 
+                col = method) ,linewidth = 1) +
+  geom_hline(yintercept=5, linetype = "dashed") +
+  labs(y = "Number of nonzero coefficients", x = "degrees of freedom") + 
+  ggtitle("Number of nonzeros for different degrees of freedom of multivariate-t") +
+  scale_x_continuous(breaks = round(df_vec,2 )) + 
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.title = element_text(face = "bold")) 
+```
+
+## A Note on Elastic Net {#sec-elastic}
+In our simulation we always considered elastic net with $\alpha = 0.05$, though we did not report our findings in previous sections due to its consistent poor performance in these settings. To choose $\alpha$, we used grid search with 5 equally placed points in $[0,1]$. The results obtained for the non-zero $\alpha$ values were very similar to the case when $\alpha = 1$, which is equivalent to lasso, even in the $0.25$ setting. Thus, we chose a value or $0.05$, because only the $\alpha = 0$ case, which is equivalent to ridge, performed differently than lasso, but at a level of $\alpha=0.05$, we are still able to perform variable selection. Of course elastic net with very small $\alpha$ is not a good model for variable selection with sparse data, but we noticed that in the context of very small SNR it performed better than the other methods, even if it was still rather poor. In @fig-F you can see that according to F-score of nonzeros, elastic net is preferable to the other methods in the low SNR setting. This holds especially in the multivariate t-setting (right plot). 
+
+```{r, fig.align = 'center'}
+#| label: fig-F
+#| fig.pos : h!
+#| fig-cap: F classification of nonzeros as a function of SNR. Results for the normal distribution setting (left) and multivariate t-distribution setting with 2.1 degrees of freedom (right). Same setting with n = 100, p = 10, s = 5 and rho = 0.35.
+#| eval : true
+knitr::include_graphics("plots/F_elNet.png")
+
+```
+
+# Discussion & Conclusion
+
+Although it is clear that in low SNR settings, lasso consistently performed the best across different evaluation metrics and in high SNR settings best subset and forward stepwise performed the best, it is quite often the case in applications that you do not whether you are in a low or high SNR setting, or in other words, you do not know how good your data is. Therefore, it is clear from our results that adaptive lasso and relaxed lasso are the most preferable methods with which to perform variable selection, as they are the only methods that performed consistently in all SNR settings. As stated, in practice we usually do not know the level of SNR, so we prefer a model that can predict correctly without the assumption of that value. These results are similar to what was found in [@best-tibshirani], though we showed the value of having two schemes that are flexible to different SNR settings in adding adaptive lasso.
+
+Moreover, we showed that in general, the different methods perform the same comparatively in the normal design case as they do in the extreme value design case, though they perform worse overall. This was an unsurprising result, as the design matrix has great influence on the estimation of $\hat{\beta}$. In further studies, it may be interesting to consider other distributions than multivariate t for investigating the relationship between extreme value design and methods for variable selection.
+
+ 
+# References
+
+::: {#refs}
+:::

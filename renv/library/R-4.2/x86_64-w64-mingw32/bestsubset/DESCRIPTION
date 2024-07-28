@@ -1,0 +1,32 @@
+Package: bestsubset
+Type: Package
+Title: Tools for best subset selection in regression
+Version: 1.0.10
+Date: 2018-11-26
+Author: Trevor Hastie, Rob Tibshirani, Ryan Tibshirani
+Maintainer: Ryan Tibshirani <ryantibs@stat.cmu.edu>
+Depends: ggplot2, glmnet
+Suggests: gurobi, Matrix
+Description: An implementation of best subset selection in regression based on a
+  mixed integer quadratic program formulation of the subset selection problem,
+  and the Gurobi mixed integer program optimizer; also, tools for running
+  simulations comparing best subset selection to the lasso and forward stepwise.
+License: GPL-2
+RoxygenNote: 5.0.1
+RemoteType: github
+RemoteHost: api.github.com
+RemoteRepo: best-subset
+RemoteUsername: ryantibs
+RemoteRef: HEAD
+RemoteSha: 796e81713634aef8b66363f9740efed5df3ba213
+RemoteSubdir: bestsubset
+GithubRepo: best-subset
+GithubUsername: ryantibs
+GithubRef: HEAD
+GithubSHA1: 796e81713634aef8b66363f9740efed5df3ba213
+GithubSubdir: bestsubset
+NeedsCompilation: yes
+Packaged: 2023-11-24 10:08:52 UTC; Maria Vittoria
+Built: R 4.2.3; x86_64-w64-mingw32; 2023-11-24 10:08:53 UTC; windows
+ExperimentalWindowsRuntime: ucrt
+Archs: x64

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.450">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Kathryn Dullerud, Maria Vittoria Impagliazzo, and Rebeka Raffay">
+<meta name="dcterms.date" content="2023-12-24">
+
+<title>A comparison of methods for variable selection</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="report_files/libs/quarto-html/quarto.js"></script>
+<script src="report_files/libs/quarto-html/popper.min.js"></script>
+<script src="report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="report_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="report_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css">
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-full">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a></li>
+  <li><a href="#preliminaries" id="toc-preliminaries" class="nav-link" data-scroll-target="#preliminaries"><span class="header-section-number">2</span> Preliminaries</a>
+  <ul class="collapse">
+  <li><a href="#best-subset" id="toc-best-subset" class="nav-link" data-scroll-target="#best-subset"><span class="header-section-number">2.1</span> Best Subset</a></li>
+  <li><a href="#forward-stepwise" id="toc-forward-stepwise" class="nav-link" data-scroll-target="#forward-stepwise"><span class="header-section-number">2.2</span> Forward Stepwise</a></li>
+  <li><a href="#lasso" id="toc-lasso" class="nav-link" data-scroll-target="#lasso"><span class="header-section-number">2.3</span> Lasso</a>
+  <ul class="collapse">
+  <li><a href="#relaxed-lasso" id="toc-relaxed-lasso" class="nav-link" data-scroll-target="#relaxed-lasso"><span class="header-section-number">2.3.1</span> Relaxed Lasso</a></li>
+  <li><a href="#adaptive-lasso" id="toc-adaptive-lasso" class="nav-link" data-scroll-target="#adaptive-lasso"><span class="header-section-number">2.3.2</span> Adaptive Lasso</a></li>
+  <li><a href="#elastic-net" id="toc-elastic-net" class="nav-link" data-scroll-target="#elastic-net"><span class="header-section-number">2.3.3</span> Elastic Net</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#simulations" id="toc-simulations" class="nav-link" data-scroll-target="#simulations"><span class="header-section-number">3</span> Simulations</a>
+  <ul class="collapse">
+  <li><a href="#normal-design" id="toc-normal-design" class="nav-link" data-scroll-target="#normal-design"><span class="header-section-number">3.1</span> Normal Design</a>
+  <ul class="collapse">
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results"><span class="header-section-number">3.1.1</span> Results</a></li>
+  </ul></li>
+  <li><a href="#extreme-value-design" id="toc-extreme-value-design" class="nav-link" data-scroll-target="#extreme-value-design"><span class="header-section-number">3.2</span> Extreme Value Design</a>
+  <ul class="collapse">
+  <li><a href="#results-1" id="toc-results-1" class="nav-link" data-scroll-target="#results-1"><span class="header-section-number">3.2.1</span> Results</a></li>
+  </ul></li>
+  <li><a href="#sec-elastic" id="toc-sec-elastic" class="nav-link" data-scroll-target="#sec-elastic"><span class="header-section-number">3.3</span> A Note on Elastic Net</a></li>
+  </ul></li>
+  <li><a href="#discussion-conclusion" id="toc-discussion-conclusion" class="nav-link" data-scroll-target="#discussion-conclusion"><span class="header-section-number">4</span> Discussion &amp; Conclusion</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">5</span> References</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="report.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content column-page-left" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title"><strong>A comparison of methods for variable selection</strong></h1>
+<p class="subtitle lead"><em>Final project</em></p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Kathryn Dullerud, Maria Vittoria Impagliazzo, and Rebeka Raffay </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">December 24, 2023</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+<div>
+  <div class="abstract">
+    <div class="abstract-title">Abstract</div>
+    In this project, we continue work on the comparison between different predictors done in Tibshirani et al, namely best subset, forward stepwise selection, lasso, and relaxed lasso. To this comparison, we also add adaptive lasso. Further, we investigate the performance of these predictors on data drawn from a non-Gaussian setting, namely the covariates matrix drawn from a multivariate t-distribution, to examine these various predictors in the presence of a greater number of extreme values.
+  </div>
+</div>
+
+</header>
+
+<section id="introduction" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
+<p>In regression and other statistical settings, it is often quite important to perform variable selection to improve modeling. In particular, we are frequently tasked with this in settings where the number of observations in our design matrix <span class="math inline">n</span> is not much greater than the number of covariates <span class="math inline">p</span> and thus the model may have more variance than desirable and consequently tends to overfit, resulting in poor prediction accuracy. A setting in which variable selection is even more necessary is where <span class="math inline">p &gt; n</span>, and thus our design matrix is rank-deficient, and consequently collinearity will arise for the model produced with all <span class="math inline">p</span> covariates. Variable selection is also useful when the number of true nonzero coefficients is small compared to the number of covariates <span class="math inline">p</span>, either if <span class="math inline">n</span> is bigger or smaller than <span class="math inline">p</span>. Hence, selecting variables is desirable in order to reduce variance, overfitting, and prevent collinearity. Additionally, variable selection may be desired simply for the sake of model interpretability, a quality becoming evermore important as such models make their way increasingly into the public sphere. Many different formulations for variable selection have been developed to solve this problem. Included in these are best subset, forward stepwise, and lasso and its myriad variations, which will be the methods on which we focus in this paper.</p>
+<p>The presence of extreme values in doing variable selection is of interest to us. Particularly, we investigate the setting in which the covariates are drawn from a more heavy-tailed distribution than the normal or Gaussian. We wish to examine whether there are any differences between the ability of our different methods in predicting and selecting in the Gaussian case and the more heavy-tailed case, in particular the multivariate t-distribution.</p>
+</section>
+<section id="preliminaries" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Preliminaries</h1>
+<p>In the setting of linear regression, we let our design matrix be denoted by <span class="math inline">X \in \mathbb{R}^{n \times p}</span>, where <span class="math inline">n</span> represents the number of observations in the system and <span class="math inline">p</span> the number of covariates. Further, we let <span class="math inline">y \in \mathbb{R}^n</span> denote the response vector. We model the relationship between <span class="math inline">y</span> and <span class="math inline">X</span> in the classical linear way, where <span class="math inline">y = X\beta + \epsilon</span>. We assume the the error term <span class="math inline">\epsilon</span> to be normally distributed. Traditionally, given this model, we want to solve the least-squares problem <span class="math inline">min_{\beta \in \mathbb{R}^p} || y-X\beta||^2</span>. However, as noted earlier, we are often faced with a setting in which we want to do variable selection.</p>
+<section id="best-subset" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="best-subset"><span class="header-section-number">2.1</span> Best Subset</h2>
+<p>Best subset is often considered the ideal in terms of performing variable selection, as it fits all possible models, that is, all <span class="math inline">2^p</span> models, and chooses whichever model performs best. Choosing the “best” model is usually performed by first choosing whichever model for each number of variables (<span class="math inline">{1,..., p}</span>) has the lowest residual sum of squares, deviance, or highest <span class="math inline">R^2</span>, and from these <span class="math inline">p</span> models, then choosing whichever has the best cross-validated prediction error, AIC, BIC, or adjusted <span class="math inline">R^2</span> <span class="citation" data-cites="intro-tibshirani">(<a href="#ref-intro-tibshirani" role="doc-biblioref">Gareth James and Tibshirani, 2013</a>)</span>. More formally, best subset solves the problem: <span class="math display">min_{\beta} ||y-X\beta||^2 + \lambda \sum_{i=0}^p I(\beta \neq 0),</span> where <span class="math inline">\lambda \geq 0</span> is a tuning parameter. Moreover, best subset is very desirable because it is most likely to pick the true model in straightforward scenarios. However, it is certainly not without its issues. Particularly, best subset is very computationally complex, as <span class="math inline">2^p</span> clearly grows exponentially with <span class="math inline">p</span>, so it is not practical for use with large <span class="math inline">p</span>. There have been a number of attempts to remedy this issue, such as branch-and-bound techniques in different statistical software, though many are still constrained to <span class="math inline">p&lt;30</span> <span class="citation" data-cites="intro-tibshirani">(<a href="#ref-intro-tibshirani" role="doc-biblioref">Gareth James and Tibshirani, 2013</a>)</span>. However, recently, Bertsimas et al.&nbsp;derived a much faster way to do best subset using mixed-integer optimization techniques <span class="citation" data-cites="best-bertsimas">(<a href="#ref-best-bertsimas" role="doc-biblioref">Dimitris Bertsimas and Mazumder, 2016</a>)</span>. Despite this, best subset is still much more computationally costly than other variable selection methods.</p>
+</section>
+<section id="forward-stepwise" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="forward-stepwise"><span class="header-section-number">2.2</span> Forward Stepwise</h2>
+<p>Forward stepwise is considered a common alternative to best subset. Forward stepwise starts with a null model and then adds covariates one-by-one to the model by which improves the fit best and stops when there’s no improvement in fit <span class="citation" data-cites="intro-tibshirani">(<a href="#ref-intro-tibshirani" role="doc-biblioref">Gareth James and Tibshirani, 2013</a>)</span>. It is much less costly than best subset, as it fits <span class="math inline">\sum_{i=0}^{k+1} (p-i)</span> models, where <span class="math inline">k</span> is the number of predictors in the best model, compared to best subset’s <span class="math inline">2^p</span>. As is the case with best subset, forward stepwise most often uses the biggest reduction in AIC, deviance, residual sum of squares or increase in adjusted <span class="math inline">R^2</span> to choose the best fit. It’s important to note that forward stepwise selects covariates for the model without shrinking the coefficients, much like best subset. Thus, it is a good choice for situations in which one does not want to perform shrinkage. However, forward stepwise does not always choose the best model <span class="citation" data-cites="intro-tibshirani">(<a href="#ref-intro-tibshirani" role="doc-biblioref">Gareth James and Tibshirani, 2013</a>)</span>. To demonstrate this, take as an example a setting in which <span class="math inline">p=3</span> and in which covariates <span class="math inline">x_2</span> and <span class="math inline">x_3</span> are the covariates of the true model. However, it is quite possible the covariate that provides the largest reduction in AIC from the null model (or any other metric) could be <span class="math inline">x_1</span>. Thus there is no way for forward stepwise to choose the best model in this setting. Even more, it is possible that there is no improvement by adding <span class="math inline">x_2</span> and <span class="math inline">x_3</span> to this model. Then forward stepwise will not even choose a correct model (one in which all the true covariates are included, but so are others).</p>
+</section>
+<section id="lasso" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="lasso"><span class="header-section-number">2.3</span> Lasso</h2>
+<p>Lasso is another method for variable selection that also performs shrinkage on the coefficients. More formally, lasso solves the minimization problem: <span class="math display">min_{\beta} ||y-X\beta||^2 + \lambda \sum_{j=0}^p | \beta_j |</span> in the linear regression context, where <span class="math inline">\lambda \geq 0</span>. Lasso is a very computationally efficient method for performing variable selection, especially if it is given the value of <span class="math inline">\lambda</span>, as it is a convex problem. However, more frequently, the choice of <span class="math inline">\lambda</span> is done via cross-validation or grid search <span class="citation" data-cites="intro-tibshirani">(<a href="#ref-intro-tibshirani" role="doc-biblioref">Gareth James and Tibshirani, 2013</a>)</span>. Despite its computationally efficient properties, lasso presents a trade-off between biased coefficient estimates and variable selection, since it cannot do variable selection without biasing the chosen coefficients due to the fact that it also performs shrinkage <span class="citation" data-cites="best-bertsimas">(<a href="#ref-best-bertsimas" role="doc-biblioref">Dimitris Bertsimas and Mazumder, 2016</a>)</span>. Thus, lasso may be an undesirable choice in a setting where we are certain of our data (i.e.&nbsp;noise <span class="math inline">\epsilon</span> is almost non-existent). However, there are many variations on lasso that try to correct for its issues.</p>
+<section id="relaxed-lasso" class="level3" data-number="2.3.1">
+<h3 data-number="2.3.1" class="anchored" data-anchor-id="relaxed-lasso"><span class="header-section-number">2.3.1</span> Relaxed Lasso</h3>
+<p>Relaxed lasso was devised in order to decrease the influence of shrinkage on the coefficients. It is performed by first computing the lasso coefficients <span class="math inline">\hat{\beta}_{lasso}(\lambda)</span> and then taking a convex combination of this vector of coefficients and the one calculated by performing normal least-squares regression on the variables selected by lasso. More formally, let <span class="math inline">X'</span> be the subset of the design matrix that lasso selects. Then we let <span class="math inline">\hat{\beta}_{LS}(X')</span> be the least-squares coefficient computed on <span class="math inline">X'</span>. Finally, we defined the relaxed lasso coefficients to be <span class="math display">\hat{\beta}_{RL}(\gamma, \lambda) = \gamma \hat{\beta}_{lasso}(\lambda) + (1-\gamma)\hat{\beta}_{LS}(X'),</span> where <span class="math inline">\gamma \in [0,1]</span> and <span class="math inline">\lambda \geq 0</span> <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>.</p>
+</section>
+<section id="adaptive-lasso" class="level3" data-number="2.3.2">
+<h3 data-number="2.3.2" class="anchored" data-anchor-id="adaptive-lasso"><span class="header-section-number">2.3.2</span> Adaptive Lasso</h3>
+<p>Adaptive lasso, like relaxed lasso, also attempts to reduce the bias of lasso. However, it tries to accomplish this by reweighting the coefficients by an “initial” estimate of <span class="math inline">\hat{\beta}</span>. This can be performed in any number of ways, including by regular least-squares and ridge regression. Formally, we let <span class="math inline">\hat{\beta}_{init}</span> be the initial estimate of the coefficients. Then adaptive lasso is performed by solving the problem <span class="math display">min_{\beta} ||y-X\beta||^2 + \lambda \sum_{j=0}^p \frac{| \beta_j |}{ | \hat{\beta}_{init,j} | },</span> where <span class="math inline">\lambda \geq 0</span> is once again a tuning parameter <span class="citation" data-cites="zou-adaptive">(<a href="#ref-zou-adaptive" role="doc-biblioref">Zou, 2006</a>)</span>.</p>
+</section>
+<section id="elastic-net" class="level3" data-number="2.3.3">
+<h3 data-number="2.3.3" class="anchored" data-anchor-id="elastic-net"><span class="header-section-number">2.3.3</span> Elastic Net</h3>
+<p>Elastic net is an approach proposed to utilize the variable selection of lasso, while maintaining the predictive performance of ridge regression. Therefore, elastic net in general performs more shrinkage than lasso. It is useful in settings where we are interested in shrinking coefficients more than lasso does, while also being able to perform variable selection. It is accomplished by solving the minimization problem <span class="math display">min_{\beta} ||y-X\beta||^2 + \lambda(\alpha||\beta||^2 + (1-\alpha)|\beta|),</span> where <span class="math inline">\alpha \in [0,1]</span> serves as a weight <span class="citation" data-cites="zou-elastic">(<a href="#ref-zou-elastic" role="doc-biblioref">Zou and Hastie, 2005</a>)</span>.</p>
+</section>
+</section>
+</section>
+<section id="simulations" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> Simulations</h1>
+<p>Our simulation compares the five different variable selection methods described above, best subset, forward stepwise, lasso, relaxed lasso, and adaptive lasso. For adaptive lasso, we reweighted the coefficients by an “initial” estimate of <span class="math inline">\hat{\beta}</span> obtained performing ridge regression on the centered and standardized data. For relaxed lasso, we consider when <span class="math inline">\gamma = 0.5</span> as in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>. We remark that in the mentioned paper, the authors chose <span class="math inline">\gamma</span> with grid search over 10 equally placed values in the interval <span class="math inline">[0,1]</span>. However, in order to be consistent and comparable with the analyzed paper, we did not choose the <span class="math inline">\gamma</span> hyperparameter by cross-validation or grid search, but kept the value of <span class="math inline">\gamma</span> obtained from their grid search. On the other hand, we tuned lasso and related methods on 50 values of <span class="math inline">\lambda</span>.</p>
+<p>We were also interested in evaluating the elastic net performances in sparse settings. As we might have expected, it either always followed lasso, when values of <span class="math inline">\alpha</span> were large enough, or it underperformed, when it became close to essentially performing ridge regression. Hence we decided to not include it in the report, except for <a href="#fig-F">Figure&nbsp;9</a>. We will discuss this further in <a href="#sec-elastic">Section&nbsp;3.3</a>.</p>
+<p>In order to reproduce the results of <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>, we used both the bestsubset package <span class="citation" data-cites="bestsubsetp">(<a href="#ref-bestsubsetp" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020b</a>)</span> in R and coded some other functions ourselves. We decided to implement the lasso function and its variants using glmnet package <span class="citation" data-cites="glmnetp">(<a href="#ref-glmnetp" role="doc-biblioref">Trevor Hastie and Tay, 2023</a>)</span> in order to have a faster and more updated version of the algorithm. To perform best subset and forward stepwise we used the bestsubset package.</p>
+We adopt the same evaluation metrics used in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span> to assess our estimators. Letting <span class="math inline">x_0 \in \mathbb{R}^p, y_0 \in \mathbb{R}</span> be a single observation of the data and response respectively, they are defined as follows:
+<p>We reproduce our simulations for both the normal and the extreme values settings.</p>
+<section id="normal-design" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="normal-design"><span class="header-section-number">3.1</span> Normal Design</h2>
+<p>We follow the simulation setup of <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>, who in turn follow the simulation setup of <span class="citation" data-cites="best-bertsimas">(<a href="#ref-best-bertsimas" role="doc-biblioref">Dimitris Bertsimas and Mazumder, 2016</a>)</span>. We first define <span class="math inline">\rho</span> to be the correlation factor between values in <span class="math inline">X</span> and the signal-to-noise ratio (SNR), <span class="math inline">\nu</span> to be the ratio of the variance of <span class="math inline">X\beta</span> to <span class="math inline">\epsilon</span>. In this section, we draw the rows of the design matrix <span class="math inline">X \in \mathbb{R}^{n \times p}</span> from multivariate normal distributions <span class="math inline">\mathcal{N}_p(0, \Sigma)</span>, where the entry <span class="math inline">(i,j)</span> of <span class="math inline">\Sigma</span> is equal to <span class="math inline">\rho^{|i-j|}</span>, and <span class="math inline">y \in \mathbb{R}^n</span> from <span class="math inline">\mathcal{N}_n(X\beta, \sigma^2 I)</span>, where <span class="math inline">\sigma^2 = \frac{Var(X\beta)}{\nu}</span>. Further, we pull our true <span class="math inline">\beta \in \mathbb{R}^p</span> from a scheme devised in terms of the level of sparseness <span class="math inline">s \in \mathbb{R}</span> which <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span> call “beta-type 2”, where the first <span class="math inline">s</span> entries of <span class="math inline">\beta</span> are equal to <span class="math inline">1</span> and the rest are 0. We also simulated data from the “beta-type 5” scheme, characterized by the first <span class="math inline">s</span> entries of <span class="math inline">\beta</span> equal to <span class="math inline">1</span> and the rest decay exponentially to <span class="math inline">0</span>, <span class="math inline">\beta_j = 0.5^{j-s}</span> for <span class="math inline">j &gt; s</span>; but in the following we do not report results obtained using “beta-type 5” as they were very similar to the ones obtained with “beta-type 2”.</p>
+<p>We consider the settings in the following table:</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Setting</th>
+<th style="text-align: left;">n</th>
+<th style="text-align: right;">p</th>
+<th style="text-align: center;">s</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="#fig-df">Figure&nbsp;1</a></td>
+<td style="text-align: left;">70</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: center;">5</td>
+</tr>
+<tr class="even">
+<td><a href="#fig-1">Figure&nbsp;2</a>, <a href="#fig-2">Figure&nbsp;3</a></td>
+<td style="text-align: left;">100</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: center;">5</td>
+</tr>
+<tr class="odd">
+<td><a href="#fig-4">Figure&nbsp;4</a>, <a href="#fig-5_1_Norm">Figure&nbsp;5</a>, <a href="#fig-5_2_Norm">Figure&nbsp;6</a></td>
+<td style="text-align: left;">100</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: center;">5</td>
+</tr>
+</tbody>
+</table>
+<p>Throughout we keep <span class="math inline">s</span> (number of non-zeros) constant in order to more easily compare across settings. We consider the same range of SNR as in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>, from <span class="math inline">0</span> to <span class="math inline">6</span>, the reasoning of which is explained in their paper. Further, we remark that since best subset selection takes 44 hours to run even in the case of <span class="math inline">n = 50, p = 100</span>, we could not reproduce all the settings proposed in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>.</p>
+<p>In <a href="#fig-df">Figure&nbsp;1</a>, we see how the different methods compare in terms of effective degrees of freedom, as done in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>. We have the same results as <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>, in addition to adding adaptive lasso and elastic net. As we can see the degrees of freedom as a measure of the aggressiveness of the methods, we can say that best subset and forward stepwise are the most aggressive. Due to shrinkage, the effective degrees of freedom of lasso is equal to the expected number of selected variables. Relaxed lasso and adaptive lasso act in the same way. It is important to note depending on the settings, different methods can perform better. However, since relaxed lasso and adaptive lasso are in between lasso and best subset, they act more consistently than the others. We expect that when the SNR is low, and also depending on other factors like correlation between predictor variables, the more aggressive best subset and forward stepwise methods could lead to estimators with high variance and worse accuracy than lasso. On the other hand, in high SNR settings, the shrinkage applied by the lasso estimator can result in unwanted bias and worse accuracy than best subset and forward stepwise.</p>
+<p>In <a href="#fig-df">Figure&nbsp;1</a> we included the relaxed lasso with <span class="math inline">\gamma = 0</span> as in a new paper <span class="citation" data-cites="NewForwardStepwise">(<a href="#ref-NewForwardStepwise" role="doc-biblioref">Trevor Hastie and Tibshirani, 2023</a>)</span>, where the authors implement forward stepwise in this way. We see that the two implementations differ from each other. This alternative forward stepwise acts more similarly to adaptive and relaxed lasso. The possible explanation for this difference is the fact that in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span> the authors implement a forward stepwise based on QR decomposition <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>.</p>
+<div class="cell" data-layout-align="center" data-fig.size="4">
+<div class="cell-output-display">
+<div id="fig-df" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/df_plot_wo.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;1: Degrees of freedom for lasso, relaxed lasso with <span class="math inline">\gamma</span> = 0 and <span class="math inline">\gamma</span> = 0.5, adaptive lasso, forward stepwise and best subset; problem setup with n = 70 and p = 30 (computed via Monte Carlo evaluation of the covariance with 500 replications). The setup had an SNR of 0.7, predictor correlation level of 0.35 and the coefficients followed the beta-type 2 pattern with s = 5</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="results" class="level3" data-number="3.1.1">
+<h3 data-number="3.1.1" class="anchored" data-anchor-id="results"><span class="header-section-number">3.1.1</span> Results</h3>
+<p>Each plot was obtained by averaging the given metric over <span class="math inline">20</span> repetitions. Hence for each metric we have the estimate and its <span class="math inline">0.95</span> confidence interval, depicted by vertical lines. When not otherwise marked, the correlation level is kept at <span class="math inline">0.35</span>.</p>
+<p>In <a href="#fig-1">Figure&nbsp;2</a> we look at the performance of the five methods according to relative test error in terms of how well they predict the true number of nonzeros. We see that for high SNR (SNR <span class="math inline">= 3</span>), all the methods perform quite similarly with best subset and stepwise being the best. These methods find the true number of nonzeros in this case. When the signal-to-noise ratio is decreased, the plot starts to look different. In the low SNR setting (SNR <span class="math inline">= 0.1</span>), instead, lasso outperforms all other methods, which makes sense due to the fact that it performs more shrinkage than any other method. Overall, relaxed lasso and adaptive lasso perform the best - they are both accurate in low and high SNR settings, due to the fact that they are malleable to settings where shrinkage needs to be performed (low SNR) and where it does not (high SNR): relaxed lasso uses its <span class="math inline">\gamma</span> parameter to do so, while adaptive lasso relies on the ridge penalty.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-1" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/fig1.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;2: Relative test error as function of the number of nonzero coefficients. Covariate matrix generated from a normal distribution. Correlation is set to 0.35.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>In addition to using glmnet, we also reproduced the plot using the relaxed lasso function provided in bestsubset package. The result shown in <a href="#fig-2">Figure&nbsp;3</a> is a bit surprising, hence there might be an error in the relaxed lasso function of the bestsubset package, which cannot be easily interpreted.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-2" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/fig2.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;3: Relative test error as function of the number of nonzero coefficients. Covariate matrix generated from a normal distribution. Relaxed lasso performed using the function provided in bestsubset package. Correlation is set to 0.35.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>We decided to investigate the role of correlation in the different methods’ performance, as it was not a central argument in the paper <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>. In this case we kept the SNR constant and changed the correlation from a low (<span class="math inline">0.2</span>) to a higher (<span class="math inline">0.7</span>) value. In <a href="#fig-4">Figure&nbsp;4</a> we compare the various methods according to relative risk. Looking at the two subplots of <a href="#fig-4">Figure&nbsp;4</a>, we see that when the correlation is low, best subset and forward stepwise select close to the true number of nonzeros, which is <span class="math inline">5</span>, while the other methods are predicting higher values (around <span class="math inline">7</span>). In the higher correlation setting, relaxed and adaptive lasso are the best, while best subset and forward stepwise underestimate the number of nonzero coefficients.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-4" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/fig4.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;4: Relative risk with fixed SNR = 0.7 and correlation 0.2, and 0.7. Low setting with n = 100, p = 10 and s = 5. Covariate matrix generated from a normal distribution.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Now we focus on the setting with <span class="math inline">n</span> = 100, <span class="math inline">p</span> = 10, <span class="math inline">s</span> = 5 and <span class="math inline">\rho</span> = 0.35. Results are shown in <a href="#fig-5_1_Norm">Figure&nbsp;5</a> and <a href="#fig-5_2_Norm">Figure&nbsp;6</a>.</p>
+<p>In <a href="#fig-5_1_Norm">Figure&nbsp;5</a> we examine our different methods in terms of the proportion of variance explained on the right and in terms of relative test error on the left. The dotted line in the left subplot denotes the performance of the null model and in the second, the perfect score.</p>
+<p>In <a href="#fig-5_1_Norm">Figure&nbsp;5</a>, in the left plot we see that forward stepwise and best subset perform worse than the others for low SNR levels, but for high SNR levels they perform the best. From the lasso family, adaptive lasso performs the best overall, because for high SNR it acts similarly to best subset and forward stepwise. On the right plot we see that in terms of proportion of variance explained, all of the models are roughly equivalent and converge to the true value.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-5_1_Norm" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/fig5.1_Norm.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;5: Relative test error and proportion of variance explained as functions of SNR. Low setting with n = 100, p = 10 and s = 5. Covariates matrix generated from a normal distribution. Correlation is set to 0.35.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>In the left subplot of <a href="#fig-5_2_Norm">Figure&nbsp;6</a>, we consider the number of nonzeros predicted by the methods as SNR varies. We remark that the true number of nonzeros in this setting is <span class="math inline">5</span>. We see that for low SNR the lasso family is the best, while for high SNR, best subset and forward stepwise are the best. Lasso also performs quite badly in this case, as “sparser solutions entail too much shrinkage” <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>. However, it is also quite interesting to note that as SNR increases, we do not see that any of our models necessarily go to the true number of <span class="math inline">p</span>, but rather consistently plateau above the true value.</p>
+<p>In the right plot of <a href="#fig-5_2_Norm">Figure&nbsp;6</a>, we look at the performance of different prediction methods in terms of F-score. So again we have the situation that for low SNR the lasso family performs the best and for high SNR, best subset and forward stepwise perform better.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-5_2_Norm" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/fig5.2_Norm.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;6: Number of nonzeros and F classification of nonzeros as functions of SNR. Low setting with n = 100, p = 10 and s = 5. Covariates matrix generated from a normal distribution. Correlation is set to 0.35.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="extreme-value-design" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="extreme-value-design"><span class="header-section-number">3.2</span> Extreme Value Design</h2>
+<p>In addition to the replication of the work done in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>, we chose to extend their work by investigating the performance of our chosen predictors in a setting where the design matrix may have more extreme values.</p>
+<p>In this section, we draw the rows of the design matrix <span class="math inline">X \in \mathbb{R}^{n \times p}</span> from the multivariate student-t distribution <span class="math inline">\mathcal{T}_{\eta}(0, \Sigma)</span>, where the entry <span class="math inline">(i,j)</span> of <span class="math inline">\Sigma</span> is equal to <span class="math inline">\rho^{|i-j|}</span>. <span class="math inline">\Sigma</span> now denotes the scale of the student distribution, and <span class="math inline">Var(X) = \frac{\eta}{\eta-2}\Sigma</span>, where <span class="math inline">\eta</span> is the degrees of freedom. We simulate <span class="math inline">y \in \mathbb{R}^n</span> from <span class="math inline">\mathcal{N}_n(X\beta, \sigma^2 I)</span>, where <span class="math inline">\sigma^2 = \frac{Var(X\beta)}{\nu} = \frac{\eta\beta^T\Sigma\beta}{(\eta-2)\nu}</span>. Further, we pull our true <span class="math inline">\beta \in \mathbb{R}^p</span> using the same scheme as before.</p>
+<p>We will only look at the number of nonzeros and F-score in the setting that we chose. This is due to the fact that the relative risk, relative test error and proportion of variance explained have the same expression in both the normal and student-t case, since we keep the <span class="math inline">\Sigma</span> the same as in the normal case, and thus introduce the same multiplicative constant in front of the variance of both <span class="math inline">X\beta</span> and <span class="math inline">\epsilon</span>, which will thus cancel out.</p>
+<section id="results-1" class="level3" data-number="3.2.1">
+<h3 data-number="3.2.1" class="anchored" data-anchor-id="results-1"><span class="header-section-number">3.2.1</span> Results</h3>
+<p>Each plot was obtained by averaging the given metric over <span class="math inline">20</span> repetitions. When not otherwise marked, the correlation level is kept at <span class="math inline">0.35</span> and the degrees of freedom of the student t-distribution is chosen to be <span class="math inline">2.1</span>, in order to emphasize the extreme value effect.</p>
+<p><a href="#fig-5_2_T">Figure&nbsp;7</a> below depicts the number of non-zeros and the F-classification of nonzeros as functions of the signal-to-noise ratio.</p>
+<p>Comparing this plot to <a href="#fig-5_2_Norm">Figure&nbsp;6</a> we notice that the general shape of the plots is similar, but there are some notable differences. Namely, all of the methods work better in the normal setting, as the F-score of nonzeros is constantly lower for the multivariate t-setting compared to the normal one. In the normal setting, forward stepwise and best subset performed the best in the high SNR settings, but for the student-t case, this is not necessarily true.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-5_2_T" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/fig5.2_T.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;7: Number of nonzeros and F classification of nonzeros as functions of SNR. Low setting with n = 100, p = 10 and s = 5. Covariates matrix generated from a multivariate t-distribution with 2.1 degrees of freedom. Correlation is set to 0.35.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Moreover, we wanted to focus our attention on how the performances of the methods vary as the degrees of freedom of the multivariate t-distribution degrees of freedom vary. In <a href="#fig-5_2_T1">Figure&nbsp;8</a> we vary the degrees of freedom of the student distribution, while keeping other factors constant (e.g.&nbsp;SNR <span class="math inline">= 1</span>). This analysis is similar to the case when vary the SNR, because of the relationship between <span class="math inline">\sigma^2</span>, SNR and the degrees of freedom. For small degrees of freedom we should get similar results to small SNR values, and similarly for high values. Thus, we get a similar shape to the left plot of <a href="#fig-5_2_T">Figure&nbsp;7</a>, however the values on <a href="#fig-5_2_T1">Figure&nbsp;8</a> are a bit shifted. We have that for the degrees of freedom considered, the best method is always the forward stepwise and best subset.</p>
+<p>As the degrees of freedom is growing, the values obtained in <a href="#fig-5_2_T1">Figure&nbsp;8</a> are approaching the values in <a href="#fig-5_2_Norm">Figure&nbsp;6</a> with the SNR 1. This is because of the fact that as the degrees of freedom are getting higher, the student distribution converges to the normal distribution. As a note, we are still in the extreme values setting as we are considering <span class="math inline">10</span> as the biggest number of degrees of freedom.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-5_2_T1" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/nonzero.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;8: Number of nonzero coefficients against the degrees of freedom of the multivariate t-distribution. Correlation is set to 0.35. SNR is set to 1. n = 100, p = 10, s = 5.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-elastic" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="sec-elastic"><span class="header-section-number">3.3</span> A Note on Elastic Net</h2>
+<p>In our simulation we always considered elastic net with <span class="math inline">\alpha = 0.05</span>, though we did not report our findings in previous sections due to its consistent poor performance in these settings. To choose <span class="math inline">\alpha</span>, we used grid search with 5 equally placed points in <span class="math inline">[0,1]</span>. The results obtained for the non-zero <span class="math inline">\alpha</span> values were very similar to the case when <span class="math inline">\alpha = 1</span>, which is equivalent to lasso, even in the <span class="math inline">0.25</span> setting. Thus, we chose a value or <span class="math inline">0.05</span>, because only the <span class="math inline">\alpha = 0</span> case, which is equivalent to ridge, performed differently than lasso, but at a level of <span class="math inline">\alpha=0.05</span>, we are still able to perform variable selection. Of course elastic net with very small <span class="math inline">\alpha</span> is not a good model for variable selection with sparse data, but we noticed that in the context of very small SNR it performed better than the other methods, even if it was still rather poor. In <a href="#fig-F">Figure&nbsp;9</a> you can see that according to F-score of nonzeros, elastic net is preferable to the other methods in the low SNR setting. This holds especially in the multivariate t-setting (right plot).</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div id="fig-F" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="plots/F_elNet.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Figure&nbsp;9: F classification of nonzeros as a function of SNR. Results for the normal distribution setting (left) and multivariate t-distribution setting with 2.1 degrees of freedom (right). Same setting with n = 100, p = 10, s = 5 and rho = 0.35.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="discussion-conclusion" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Discussion &amp; Conclusion</h1>
+<p>Although it is clear that in low SNR settings, lasso consistently performed the best across different evaluation metrics and in high SNR settings best subset and forward stepwise performed the best, it is quite often the case in applications that you do not whether you are in a low or high SNR setting, or in other words, you do not know how good your data is. Therefore, it is clear from our results that adaptive lasso and relaxed lasso are the most preferable methods with which to perform variable selection, as they are the only methods that performed consistently in all SNR settings. As stated, in practice we usually do not know the level of SNR, so we prefer a model that can predict correctly without the assumption of that value. These results are similar to what was found in <span class="citation" data-cites="best-tibshirani">(<a href="#ref-best-tibshirani" role="doc-biblioref">Trevor Hastie and Tibshirani, 2020a</a>)</span>, though we showed the value of having two schemes that are flexible to different SNR settings in adding adaptive lasso.</p>
+<p>Moreover, we showed that in general, the different methods perform the same comparatively in the normal design case as they do in the extreme value design case, though they perform worse overall. This was an unsurprising result, as the design matrix has great influence on the estimation of <span class="math inline">\hat{\beta}</span>. In further studies, it may be interesting to consider other distributions than multivariate t for investigating the relationship between extreme value design and methods for variable selection.</p>
+</section>
+<section id="references" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-best-bertsimas" class="csl-entry" role="listitem">
+Dimitris Bertsimas, Angela King, and Mazumder, R. (2016). Best subset selection via a modern optimization lens. <em>Annals of Statistics</em> 44, 813–852.
+</div>
+<div id="ref-intro-tibshirani" class="csl-entry" role="listitem">
+Gareth James, T. H., Daniela Witten, and Tibshirani, R. (2013). <em>An introduction to statistical learning with applications in r</em>. Springer.
+</div>
+<div id="ref-NewForwardStepwise" class="csl-entry" role="listitem">
+Trevor Hastie, B. N., and Tibshirani, R. (2023). Available at: <a href="https://cran.r-project.org/web/packages/glmnet/vignettes/relax.pdf">https://cran.r-project.org/web/packages/glmnet/vignettes/relax.pdf</a>.
+</div>
+<div id="ref-glmnetp" class="csl-entry" role="listitem">
+Trevor Hastie, J. Q., and Tay, K. (2023). Glmnet package. Available at: <a href="https://glmnet.stanford.edu/articles/glmnet.html">https://glmnet.stanford.edu/articles/glmnet.html</a>.
+</div>
+<div id="ref-best-tibshirani" class="csl-entry" role="listitem">
+Trevor Hastie, Robert Tibshirani, and Tibshirani, R. (2020a). Best subset, forward stepwise or lasso? Analysis and recommendations based on extensive comparisons. <em>Statistical Science</em> 35, 579–592.
+</div>
+<div id="ref-bestsubsetp" class="csl-entry" role="listitem">
+Trevor Hastie, Robert Tibshirani, and Tibshirani, R. (2020b). Bestsubset package. Available at: <a href="https://github.com/ryantibs/best-subset">https://github.com/ryantibs/best-subset</a>.
+</div>
+<div id="ref-zou-adaptive" class="csl-entry" role="listitem">
+Zou, H. (2006). The adaptive lasso and its oracle properties. <em>Journal of the American Statistical Association</em> 101, 1418.
+</div>
+<div id="ref-zou-elastic" class="csl-entry" role="listitem">
+Zou, H., and Hastie, T. (2005). Regularization and variable selection via the elastic net. <em>Journal of the Royal Statistical Society</em> 67, 301–320.
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
