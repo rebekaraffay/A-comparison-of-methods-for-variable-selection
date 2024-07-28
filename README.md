@@ -20,11 +20,11 @@ The `docs` folder can be directly used by Github Pages. Example:
 
 -   Check "renv" folder for the virtual environment
 
+-   compile the report and check the [compiled pdf](docs/report.pdf). It is  **reproducible**.
+
 ## Attributions:
 
 This template is from <https://github.com/vitay/quarto-report>
 
-## TODO before submitting
 
--   compile the report and check the [compiled pdf](docs/report.pdf)
--   Rewrite this README with instructions on how to re-run your code. Your work should be **reproducible**. Check the virtual environment page on the website for more information.
+
